@@ -31,6 +31,14 @@ local stretchRezEnabled = false
 local stretchRezConn = nil
 local setStretchRezVisual = nil
 
+-- Spin Bot imported from the supplied Confuser V6 script
+local spinBotEnabled = false
+local spinBotSpeed = 3000000
+local SPIN_BOT_MIN_SPEED = 1
+local SPIN_BOT_MAX_SPEED = 50000000
+local spinBotConnection = nil
+local spinBotPreviousAutoRotate = nil
+
 local unwalkSavedAnimate = nil
 local _anyKeyListening = false
 local autoTPConn = nil
@@ -2144,6 +2152,52 @@ local function buildGui()
             table.insert(refs,{btn=sb,sz=sz})
             sb.Activated:Connect(function() uiScale=sz/100;scaleObj.Scale=uiScale;refreshBtns(sz);saveConfig() end)
         end
+    end
+
+    -- SPIN BOT (based on the uploaded Confuser V6 script)
+    mkSect(configPage,"Spin Bot")
+    local function stopSpinBot()
+        if spinBotConnection then spinBotConnection:Disconnect();spinBotConnection=nil end
+        local char=LP.Character
+        local hum=char and char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            if spinBotPreviousAutoRotate==nil then hum.AutoRotate=true else hum.AutoRotate=spinBotPreviousAutoRotate end
+        end
+        spinBotPreviousAutoRotate=nil
+    end
+    local function startSpinBot()
+        if spinBotConnection then spinBotConnection:Disconnect();spinBotConnection=nil end
+        local char=LP.Character
+        local hum=char and char:FindFirstChildOfClass("Humanoid")
+        if hum then spinBotPreviousAutoRotate=hum.AutoRotate;hum.AutoRotate=false end
+        spinBotConnection=RunService.Stepped:Connect(function(_,dt)
+            if not spinBotEnabled then return end
+            local character=LP.Character
+            local root=character and character:FindFirstChild("HumanoidRootPart")
+            local humanoid=character and character:FindFirstChildOfClass("Humanoid")
+            if not root then return end
+            if humanoid and humanoid.AutoRotate then humanoid.AutoRotate=false end
+            local degrees=(spinBotSpeed*dt)%360
+            root.CFrame=root.CFrame*CFrame.Angles(0,math.rad(degrees),0)
+        end)
+    end
+    local setSpinBotVisual=mkToggle(configPage,"Spin Bot",function(on)
+        spinBotEnabled=on
+        if on then startSpinBot() else stopSpinBot() end
+        saveConfig()
+    end)
+    do
+        local row=mkRow(configPage,32);mkLabel(row,"Spin Speed (Max 50M)")
+        local spinSpeedBox
+        spinSpeedBox=mkBox(row,spinBotSpeed,94,102,function(v)
+            spinBotSpeed=math.clamp(math.floor(v),SPIN_BOT_MIN_SPEED,SPIN_BOT_MAX_SPEED)
+            spinSpeedBox.Text=tostring(spinBotSpeed)
+            saveConfig()
+        end)
+        spinSpeedBox:GetPropertyChangedSignal("Text"):Connect(function()
+            local digits=spinSpeedBox.Text:gsub("%D","")
+            if digits~=spinSpeedBox.Text then spinSpeedBox.Text=digits end
+        end)
     end
 
     -- KEYBINDS
